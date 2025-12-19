@@ -32,7 +32,7 @@ services:
       - EVE_CLIENT_ID=${EVE_CLIENT_ID}
       - EVE_CLIENT_SECRET=${EVE_CLIENT_SECRET}
       - EVE_CALLBACK_URL=${EVE_CALLBACK_URL}
-    restart: unless-stopped
+    # restart: unless-stopped
 
   frontend:
     build:
@@ -44,7 +44,18 @@ services:
       - "7777:5173"
     environment:
       - VITE_API_URL=${VITE_API_URL}
-    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    # restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: eve-cloudflared
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    # restart: unless-stopped
 
   postgres:
     image: postgres:17-alpine
@@ -57,7 +68,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+    # restart: unless-stopped
 
   neo4j:
     image: neo4j:5-community
@@ -71,7 +82,7 @@ services:
       # NEO4J_PLUGINS: '["apoc"]' 
     volumes:
       - neo4j_data:/data
-    restart: unless-stopped
+    # restart: unless-stopped
 
   redis:
     image: redis:alpine

@@ -1,5 +1,6 @@
 # Part 2: Frontend & Testing Prompt
 
+# Part 2.1 Frontend structure and Tunnel setup
 **Context:** You are a Senior Frontend Developer specializing in React and Data Visualization. You are building the UI for the EVE App.
 
 **Tech Stack:**
@@ -119,6 +120,26 @@
 
 - Verify Swagger UI at `/docs`.
     
-- **Input Validation:** Zod schemas matching Pydantic models.
+- **Input Validation:** Zod schemas matching Pydantic models. Mock data for testing
     
 - **Theme:** Modern Dark Mode default (EVE Online aesthetics).
+
+- **Login Test** Open the browser and validate the Login view displays the EVE SSO button pointing to the EVE SSO URL.
+
+- **User Test** Notify the user to complete to start manual login and authorization process. After the manual login is completed, validate the session cached in Redis.
+
+- **Dashboard Test** After redis validation, Open the browser and validate the Dashboard view opens.
+
+
+# Part 2.2: 
+**Context:** You are a Fullstack Developer specializing in React, Data Visualization and Backend Python Developer. You are integrating the frontend with the backend for the EVE App.
+
+## 1. Project cleaning.
+
+- Remove all unused files and folders.
+- Remove all mocked data
+
+## 2. API Integration.
+
+- Integrate the backend API with the frontend.
+

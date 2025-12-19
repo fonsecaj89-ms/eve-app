@@ -5,10 +5,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
     plugins: [react()],
     server: {
-        host: true, // Needed for Docker
+        host: '0.0.0.0',
         port: 5173,
-        watch: {
-            usePolling: true
-        }
+        hmr: {
+            // Cloudflare Tunnel Support
+            clientPort: 443,
+            host: "eve-app.jf-nas.com"
+        },
+        allowedHosts: ["eve-app.jf-nas.com"]
     }
 })
