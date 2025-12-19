@@ -44,11 +44,12 @@
 
 Create a robust script (`scripts/ingest_data.py`) to:
 
-1. Download the latest "Translquility" SQL dump from `https://www.fuzzwork.co.uk/dump/`.
+1. Create the script to download the latest "Translquility" SQL dump from `https://www.fuzzwork.co.uk/dump/`. Store it in eve_data located in the root of the project. Note: I already have the latest dump in eve_data.
     
-2. Parse and ingest strictly necessary tables (Items, Map data) into PostgreSQL.
-    
+2. Open the file and Parse and ingest strictly necessary tables (Items, Map data) into PostgreSQL.
+
 3. **Graph Construction:** Read map data and populate Neo4j nodes (Systems) and relationships (Stargates). Ensure edges have weights (distance/security status) for routing.
+
     
 
 ## 3. ESI Client (The "Violent" Rate Limiter)

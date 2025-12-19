@@ -19,6 +19,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.routers import images, auth, market, router as routing_router, contracts
+app.include_router(images.router)
+app.include_router(auth.router)
+app.include_router(market.router)
+app.include_router(routing_router.router)
+app.include_router(contracts.router)
+
 @app.middleware("http")
 async def logging_middleware(request: Request, call_next):
     start_time = time.time()
