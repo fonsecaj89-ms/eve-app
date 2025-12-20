@@ -1,0 +1,156 @@
+services:
+  # PostgreSQL - Static Data Export (SDE) Database
+  postgres-sde:
+    image: postgres:15-alpine
+    container_name: eve-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eve_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eve_password}
+      POSTGRES_DB: ${POSTGRES_DB:-eve_sde}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/data:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - eve-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eve_user}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Neo4j - Graph Database for Route Planning
+  neo4j-topology:
+    image: neo4j:5-community
+    container_name: eve-neo4j
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-password}
+      NEO4J_dbms_memory_pagecache_size: 512M
+      NEO4J_dbms_memory_heap_initial__size: 512M
+      NEO4J_dbms_memory_heap_max__size: 1G
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    networks:
+      - eve-net
+    healthcheck:
+      test: [ "CMD-SHELL", "cypher-shell -u ${NEO4J_USER:-neo4j} -p ${NEO4J_PASSWORD:-password} 'RETURN 1'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Caching and Rate Limiting
+  redis-cache:
+    image: redis:7-alpine
+    container_name: eve-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - eve-net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend - FastAPI Application
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eve-backend
+    environment:
+      # Database Connections
+      POSTGRES_HOST: postgres-sde
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-eve_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eve_password}
+      POSTGRES_DB: ${POSTGRES_DB:-eve_sde}
+
+      NEO4J_URI: bolt://neo4j-topology:7687
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
+
+      REDIS_URL: redis://redis-cache:6379
+
+      # EVE SSO OAuth
+      EVE_CLIENT_ID: ${EVE_CLIENT_ID}
+      EVE_CLIENT_SECRET: ${EVE_CLIENT_SECRET}
+      EVE_CALLBACK_URL: ${EVE_CALLBACK_URL:-https://eve-app.jf-nas.com/callback}
+
+      # Application Settings
+      SECRET_KEY: ${SECRET_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+
+      # Tax and Broker Settings
+      BASE_SALES_TAX: ${BASE_SALES_TAX:-0.08}
+      BASE_BROKER_FEE: ${BASE_BROKER_FEE:-0.03}
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - eve-net
+    depends_on:
+      postgres-sde:
+        condition: service_healthy
+      neo4j-topology:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend - Vite + React
+  frontend-ui:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: eve-frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://backend-api:8000}
+      VITE_HMR_HOST: ${VITE_HMR_HOST:-eve-app.jf-nas.com}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    networks:
+      - eve-net
+    depends_on:
+      - backend-api
+    command: npm run dev
+
+  # Cloudflare Tunnel - REQUIRED for EVE SSO Callbacks
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: eve-tunnel
+    restart: unless-stopped
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel run
+    networks:
+      - eve-net
+    depends_on:
+      - frontend-ui
+
+networks:
+  eve-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  redis_data:
+    driver: local
