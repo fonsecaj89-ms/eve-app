@@ -8,11 +8,12 @@ export default defineConfig({
         host: '0.0.0.0',  // Allow external container access
         port: 5173,
         strictPort: true,
+        allowedHosts: ['eve-app.jf-nas.com', 'eve-frontend', 'localhost', '127.0.0.1'],
 
         // HMR configuration for Cloudflare Tunnel
         hmr: {
             protocol: 'wss',  // WebSocket Secure for tunnel
-            host: process.env.VITE_HMR_HOST || 'eve-app.jf-nas.com',
+            host: 'eve-app.jf-nas.com',
             clientPort: 443  // HTTPS port
         },
 

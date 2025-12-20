@@ -163,3 +163,28 @@ This project follows Clean Code principles and SOLID architecture patterns. Plea
 - [EVE Online Developer Portal](https://developers.eveonline.com/)
 - [ESI Documentation](https://esi.evetech.net/ui/)
 - [Fuzzwork SDE](https://www.fuzzwork.co.uk/dump/)
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**1. 502 Bad Gateway (Cloudflare Tunnel)**
+- Cause: Tunnel pointing to wrong port or unable to reach container.
+- Fix: Ensure `docker-compose.yml` maps port `7777:5173` (matches Tunnel config).
+
+**2. 403 Forbidden (Vite/Frontend)**
+- Cause: Vite blocking requests from Tunnel/internal network.
+- Fix: `vite.config.ts` must include `allowedHosts: ['eve-frontend', 'eve-app.jf-nas.com']`.
+
+**3. "Authentication Failed" or Timeout (Backend)**
+- Cause: Backend container cannot resolve `login.eveonline.com`.
+- Fix: `docker-compose.yml` backend service must include explicit DNS:
+  ```yaml
+  dns:
+    - 8.8.8.8
+    - 1.1.1.1
+  ```
+
+**4. "No pg_hba.conf entry" (Postgres)**
+- Cause: Volume initialized with default credentials but `.env` specifies different user.
+- Fix: `docker-compose down -v` to wipe volume and re-initialize.

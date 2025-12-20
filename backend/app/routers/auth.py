@@ -15,6 +15,11 @@ import os
 from urllib.parse import urlencode
 import secrets
 import json
+import logging
+import traceback
+
+# Setup logger
+logger = logging.getLogger("uvicorn.error")
 
 from app.cache import get_redis
 from app.clients.token_manager import TokenManager
@@ -56,6 +61,7 @@ async def login():
     """
     # Generate state for CSRF protection
     state = secrets.token_urlsafe(32)
+    logger.info(f"➡️ Initiating login. State: {state[:10]}...")
     
     # Build EVE SSO authorization URL
     params = {
@@ -100,15 +106,23 @@ async def callback(
     
     This is where tokens are stored in Redis.
     """
+    logger.info(f"⬅️ Callback received. Code len: {len(code)}, State: {state[:10]}...")
+    
     # Verify state (CSRF protection)
     stored_state = request.cookies.get("oauth_state")
-    if not stored_state or stored_state != state:
-        raise HTTPException(status_code=400, detail="Invalid state parameter")
+    if not stored_state:
+        logger.error("❌ No stored state cookie found")
+        raise HTTPException(status_code=400, detail="Invalid state parameter (missing cookie)")
+        
+    if stored_state != state:
+        logger.error(f"❌ State mismatch. Received: {state}, Stored: {stored_state}")
+        raise HTTPException(status_code=400, detail="Invalid state parameter (mismatch)")
     
     # Exchange code for tokens
     token_manager = TokenManager(redis)
     
     try:
+        logger.info("🔄 Exchanging code for tokens...")
         character_info, access_token, refresh_token, expires_in = \
             await token_manager.exchange_code_for_tokens(code)
         
@@ -131,6 +145,8 @@ async def callback(
             "character_owner_hash": character_info.get("CharacterOwnerHash")
         }
         
+        logger.info(f"💾 Storing session for {character_name} ({character_id})")
+        
         # Store session in Redis (30 day expiry)
         await redis.setex(
             f"session:{session_id}",
@@ -139,6 +155,7 @@ async def callback(
         )
         
         # Redirect to frontend dashboard with session cookie
+        logger.info("➡️ Redirecting to dashboard")
         response = RedirectResponse(url=f"{FRONTEND_URL}/dashboard")
         response.set_cookie(
             key="session_id",
@@ -155,7 +172,8 @@ async def callback(
         return response
         
     except Exception as e:
-        print(f"❌ OAuth callback failed: {e}")
+        logger.error(f"❌ OAuth callback failed: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
 
 

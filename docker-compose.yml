@@ -2,7 +2,7 @@ services:
   # PostgreSQL - Static Data Export (SDE) Database
   postgres-sde:
     image: postgres:15-alpine
-    container_name: eve-postgres
+    container_name: eve_db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-eve_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eve_password}
@@ -99,6 +99,9 @@ services:
       - "8000:8000"
     networks:
       - eve-net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     depends_on:
       postgres-sde:
         condition: service_healthy
@@ -121,7 +124,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "5173:5173"
+      - "7777:5173"
     networks:
       - eve-net
     depends_on:

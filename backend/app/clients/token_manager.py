@@ -168,35 +168,53 @@ class TokenManager:
         Raises:
             httpx.HTTPError: If token exchange fails
         """
+        import logging
+        logger = logging.getLogger("uvicorn.error")
+        logger.info(f"🔄 Exchanging code for tokens (code length: {len(code)})")
+        
         async with httpx.AsyncClient() as client:
             # Exchange code for tokens
-            response = await client.post(
-                self.SSO_TOKEN_URL,
-                data={
-                    "grant_type": "authorization_code",
-                    "code": code
-                },
-                auth=(self.client_id, self.client_secret),
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
-            
-            response.raise_for_status()
-            token_data = response.json()
-            
-            access_token = token_data["access_token"]
-            refresh_token = token_data["refresh_token"]
-            expires_in = token_data["expires_in"]
-            
-            # Verify token and get character info
-            verify_response = await client.get(
-                self.SSO_VERIFY_URL,
-                headers={"Authorization": f"Bearer {access_token}"}
-            )
-            
-            verify_response.raise_for_status()
-            character_info = verify_response.json()
-            
-            return character_info, access_token, refresh_token, expires_in
+            try:
+                response = await client.post(
+                    self.SSO_TOKEN_URL,
+                    data={
+                        "grant_type": "authorization_code",
+                        "code": code
+                    },
+                    auth=(self.client_id, self.client_secret),
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"❌ Token exchange failed. Status: {response.status_code}, Body: {response.text}")
+                
+                response.raise_for_status()
+                token_data = response.json()
+                logger.info("✅ Token exchange successful")
+                
+                access_token = token_data["access_token"]
+                refresh_token = token_data["refresh_token"]
+                expires_in = token_data["expires_in"]
+                
+                # Verify token and get character info
+                logger.info("🔄 Verifying access token...")
+                verify_response = await client.get(
+                    self.SSO_VERIFY_URL,
+                    headers={"Authorization": f"Bearer {access_token}"}
+                )
+                
+                if verify_response.status_code != 200:
+                    logger.error(f"❌ Token verification failed. Status: {verify_response.status_code}, Body: {verify_response.text}")
+                
+                verify_response.raise_for_status()
+                character_info = verify_response.json()
+                logger.info(f"✅ Token verified for character: {character_info.get('CharacterName')}")
+                
+                return character_info, access_token, refresh_token, expires_in
+                
+            except httpx.HTTPError as e:
+                logger.error(f"❌ HTTP error during token exchange: {str(e)}")
+                raise
     
     async def revoke_tokens(self, character_id: int):
         """
